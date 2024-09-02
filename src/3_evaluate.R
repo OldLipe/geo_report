@@ -70,7 +70,7 @@ plot_lst <- lapply(years_to_analyse, function(year) {
         ) |>
         dplyr::mutate(
             label = dplyr::case_when(
-                label == "Deforestation_Mask" ~ "Land Use Mask",
+                label == "Deforestation_Mask" ~ "Deforestation",
                 label == "Forest" ~ "Forest",
                 label == "Water" ~ "Water"
             )
@@ -106,7 +106,7 @@ cowplot::plot_grid(
 )
 
 ggplot2::ggsave(
-    filename = "./data/output/5_plots/acc.png",
+    filename = "./data/output/4_plots/acc.png",
     plot = ggplot2::last_plot(),
     device = "png",
     width = 11.01,
