@@ -818,9 +818,9 @@
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
       "RemoteRepo": "sits",
-      "RemoteUsername": "e-sensing",
-      "RemoteRef": "dev",
-      "RemoteSha": "972f8ba56d9ae7041b7d8cd70958ca043bb98ed2",
+      "RemoteUsername": "oldlipe",
+      "RemoteRef": "feat/dev-sits",
+      "RemoteSha": "05be056d14939063f5d4ec0df149d9589dee6d8f",
       "Requirements": [
         "R",
         "Rcpp",
@@ -847,7 +847,7 @@
         "utils",
         "yaml"
       ],
-      "Hash": "038a3fa5fa7de845f2869b68f876f043"
+      "Hash": "7dbb7f69ff878500ae1f4d43d0183537"
     },
     "slider": {
       "Package": "slider",

@@ -7,7 +7,6 @@ library(cowplot)
 
 set.seed(123)
 
-
 years_to_analyse <- c("2018", "2020", "2022")
 
 res_years <- lapply(years_to_analyse, function(year) {
@@ -19,14 +18,25 @@ res_years <- lapply(years_to_analyse, function(year) {
         res_path <- res_paths[[i]]
         acc_results <- readRDS(res_path)
 
-        tbl <- tibble::as_tibble(
-            acc_results$accuracy[c("user", "producer")]
+        tbl <- tibble::as_tibble(acc_results$byClass)
+        cols_sel <- c("Sensitivity", "Specificity",
+                      "Pos Pred Value", "Neg Pred Value",
+                      "F1")
+        tbl <- tbl[, cols_sel]
+
+        colnames(tbl) <- c(
+            "producer", "specificity", "user", "neg_pred", "F1_score"
         )
-        tbl$label <- names(acc_results$accuracy$user)
+        tbl$label <- gsub(
+            pattern = "Class: ",
+            replacement = "",
+            x = row.names(acc_results$byClass)
+        )
+
         tbl <- tbl[tbl$label %in% c("Forest", "Deforestation_Mask", "Water"),]
         tbl$year <- year
         tbl$idx <- i
-        tbl$acc <- acc_results$accuracy$overall
+        tbl$acc <- acc_results$overall[["Accuracy"]]
         tbl
     })
     do.call(rbind, res_lst)
@@ -45,12 +55,13 @@ res_stats <- res_tbl |>
     dplyr::group_by(.data[["year"]]) |>
     dplyr::summarise(mean = mean(acc), std = sd(acc))
 
-
 #
 # Accuracy plot
 #
 plot_lst <- lapply(years_to_analyse, function(year) {
     res_analyses <- res_tbl |>
+        dplyr::select(dplyr::all_of(c("producer", "user", "label", "year",
+                                      "idx", "acc"))) |>
         dplyr::group_by(.data[["year"]], .data[["label"]]) |>
         dplyr::summarise(user_mean = mean(user), user_sd = sd(user),
                          producer_mean = mean(producer), producer_sd = sd(producer)) |>
@@ -100,8 +111,10 @@ plot_lst <- lapply(years_to_analyse, function(year) {
 })
 
 cowplot::plot_grid(
-    cowplot::plot_grid(plot_lst[[1]], plot_lst[[2]], nrow = 1, ncol = 2, label_size = 8, labels = c("2018", "2020")),
-    cowplot::plot_grid(NULL, plot_lst[[3]], NULL, nrow = 1, rel_widths = c(0.5, 1, 0.5), label_size = 8, labels = "2022"),
+    cowplot::plot_grid(plot_lst[[1]], plot_lst[[2]], nrow = 1, ncol = 2, label_size = 11,
+                       labels = c("(a) 2018", "(b) 2020"), label_x = -0.025),
+    cowplot::plot_grid(NULL, plot_lst[[3]], NULL, nrow = 1, rel_widths = c(0.5, 1, 0.5), label_size = 11,
+                       labels = "(c) 2022", label_x = 0.95),
     nrow = 2
 )
 
@@ -132,4 +145,3 @@ ggplot2::ggsave(
     plot = ggplot2::last_plot(),
     device = "png"
 )
-

@@ -6,6 +6,7 @@ years_to_analyse <- c("2018", "2020", "2022")
 n_iter <- 10
 
 res <- lapply(years_to_analyse, function(year) {
+
     class_dir <- paste0("./data/output/1_masks/", year)
     class_cube <- sits_cube(
         source = "BDC",
@@ -15,8 +16,8 @@ res <- lapply(years_to_analyse, function(year) {
         labels = c("1" = "Clear_Cut_Bare_Soil", "2" = "Clear_Cut_Burned_Area",
                    "3" = "Mountainside_Forest", "4" = "Forest",
                    "5" = "Riparian_Forest", "6" = "Clear_Cut_Vegetation",
-                   "7" = "Water", "8" = "Wetland", "9" = "Seasonally_Flooded",
-                   "10" = "Natural_Non_Forested"),
+                   "7" = "Water_Bodies", "8" = "Water_Bodies",
+                   "9" = "Water_Bodies", "10" = "Natural_Non_Forested"),
         version = "masked-nf"
     )
 
@@ -44,7 +45,6 @@ res <- lapply(years_to_analyse, function(year) {
                    "51" = "NATURAL NAO FLORESTAL")
     )
     lapply(seq_len(n_iter), function(n_i) {
-
         #
         # Sampling design
         #
@@ -57,7 +57,7 @@ res <- lapply(years_to_analyse, function(year) {
                 "Forest" = 0.75,
                 "Riparian_Forest" = 0.70,
                 "Clear_Cut_Vegetation" = 0.70,
-                "Water" = 0.70
+                "Water_Bodies" = 0.70
             ),
             alloc_options = c(120, 100),
             std_err = 0.01,
@@ -81,18 +81,67 @@ res <- lapply(years_to_analyse, function(year) {
         )
 
         #
-        # Relabeling samples
+        # Extracting samples validation values
         #
-        samples_validation <- samples_validation |>
+        samples_validation <- terra::extract(
+            terra::rast(tc_cube$file_info[[1]]$path),
+            terra::vect(samples_validation),
+            bind = TRUE, xy = TRUE
+        )
+        samples_tbl <- tibble::as_tibble(samples_validation)
+        colnames(samples_tbl) <- c("predicted", "reference", "x", "y")
+
+        #
+        # Removing non-observed points
+        #
+        samples_tbl <- samples_tbl |> dplyr::filter(
+            reference != 25
+        )
+
+        #
+        # relabeling reference
+        #
+        samples_tbl <- samples_tbl |>
             dplyr::mutate(
-                label = dplyr::case_when(
-                    label %in% c("Clear_Cut_Bare_Soil", "Clear_Cut_Burned_Area", "Clear_Cut_Vegetation") ~ "Deforestation_Mask",
-                    label %in% c("Mountainside_Forest", "Forest", "Riparian_Forest") ~ "Forest",
-                    label == "Water" ~ "Water"
+                reference = dplyr::case_when(
+                    reference %in% c(1, 2)  ~ "Forest",
+                    reference %in% c(9, 10, 11, 12, 13, 14, 15, 16, 17, 20, 22) ~ "Deforestation_Mask",
+                    reference == 23 ~ "Water"
                 )
             )
 
-        acc <- sits_accuracy(tc_cube, validation = samples_validation)
+        #
+        # relabeling predicted
+        #
+        samples_tbl <- samples_tbl |>
+            dplyr::mutate(
+                predicted = dplyr::case_when(
+                    predicted %in% c("Clear_Cut_Bare_Soil", "Clear_Cut_Burned_Area", "Clear_Cut_Vegetation") ~ "Deforestation_Mask",
+                    predicted %in% c("Mountainside_Forest", "Forest", "Riparian_Forest") ~ "Forest",
+                    predicted %in% c("Water_Bodies") ~ "Water"
+                )
+            )
+
+        #
+        # Relabeling forest as water
+        #
+        samples_tbl <- samples_tbl |>
+            dplyr::mutate(
+                reference = dplyr::case_when(
+                    predicted == "Water" & reference == "Forest" ~ "Water",
+                    .default = as.character(reference)
+                )
+            )
+
+        #
+        # Getting accuracy
+        #
+        acc <- sits:::.accuracy_pixel_assess(
+            cube = tc_cube,
+            pred = samples_tbl[["predicted"]],
+            ref = samples_tbl[["reference"]]
+        )
+
         acc_dir <- paste0(
             "./data/output/3_olofsson/", year, "/acc_results_", n_i,".rds"
         )
